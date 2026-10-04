@@ -1,0 +1,446 @@
+<div class="scouting-container">
+  <header class="app-banner">
+  <div class="banner-brand">
+    <div class="brand-logo-container">
+      <img
+        src="/thunder-logo.svg"
+        alt="Oklahoma City Thunder Logo"
+        class="team-logo-img"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+      />
+      <div class="thunder-shield fallback-shield" style="display: none;">OKC</div>
+    </div>
+
+    <div class="brand-text">
+      <div class="title-with-badge">
+        <h2>Oklahoma City Thunder &bull; Lineup Analytics</h2>
+        <span class="platform-tag">FiveCast</span>
+      </div>
+      <span class="sub-badge">Possession Tracking & Rotation Optimization</span>
+    </div>
+  </div>
+
+  <div class="banner-actions">
+    <button class="glossary-btn" (click)="openGlossary()">
+      <span class="btn-icon">📖</span> Metric Glossary & Formulas
+    </button>
+    <button class="glossary-btn" (click)="exportToCSV()" title="Export current filtered view to CSV">
+      <span class="btn-icon">📥</span> Export CSV
+    </button>
+    <button class="export-btn" (click)="fetchLineups(); fetchRumbleCounter()">
+      <span class="btn-icon">↺</span> Refresh Data
+    </button>
+  </div>
+</header>
+
+  <section class="rumble-counter-card" *ngIf="rumbleCounterLineup">
+    <div class="rumble-content">
+      <div class="rumble-badge-row">
+        <div class="rumble-avatar-pill">
+          <span class="bison-icon">🦬</span>
+          <span class="rumble-tag">Rumble's Suggested Counter</span>
+        </div>
+        <div class="rumble-header-actions">
+          <span class="counter-archetype-tag">Target Matchup: Rebound-Heavy / Big Frontcourts</span>
+          <button class="mini-calc-btn" (click)="openGlossary()">
+            View Calculation ↗
+          </button>
+        </div>
+      </div>
+
+      <div class="rumble-body-grid">
+        <div class="rumble-personnel">
+          <span class="section-label">Recommended 5-Man Unit ({{ rumbleCounterLineup.team_name }})</span>
+          <div class="personnel-chips">
+            <div *ngFor="let player of rumbleCounterLineup.players" class="player-profile-badge">
+              <span class="player-number">#</span>
+              <span class="player-name">{{ player.name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rumble-metrics">
+          <div class="stat-pill" (click)="openGlossary()" title="Click to view DREB% calculation">
+            <span class="stat-lbl">DREB% ⓘ</span>
+            <span class="stat-val highlight">{{ rumbleCounterLineup.defensive_dreb_pct | number:'1.1-1' }}%</span>
+          </div>
+          <div class="stat-pill" (click)="openGlossary()" title="Click to view OREB% calculation">
+            <span class="stat-lbl">OREB% ⓘ</span>
+            <span class="stat-val">{{ rumbleCounterLineup.offensive_oreb_pct | number:'1.1-1' }}%</span>
+          </div>
+          <div class="stat-pill" (click)="openGlossary()" title="Click to view Net Rating calculation">
+            <span class="stat-lbl">Net Rating ⓘ</span>
+            <span class="stat-val pos">+{{ rumbleCounterLineup.net_rating | number:'1.1-1' }}</span>
+          </div>
+          <div class="stat-pill" (click)="openGlossary()" title="Click to view Forced TOV% calculation">
+            <span class="stat-lbl">Forced TOV% ⓘ</span>
+            <span class="stat-val">{{ rumbleCounterLineup.defensive_tov_pct | number:'1.1-1' }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rumble-tactical-briefing">
+        <strong>Coaching Matchup Note:</strong>
+        This 5-man rotation counters physical, rebounding-focused frontcourts by securing {{ rumbleCounterLineup.defensive_dreb_pct | number:'1.1-1' }}% of defensive rebounding opportunities while maintaining a +{{ rumbleCounterLineup.net_rating | number:'1.1-1' }} Net Rating. By generating a {{ rumbleCounterLineup.defensive_tov_pct | number:'1.1-1' }}% opponent turnover rate, this group neutralizes second-chance putbacks and creates transition scoring opportunities against slower lineups.
+      </div>
+    </div>
+  </section>
+
+  <section class="kpi-deck" *ngIf="lineups.length > 0">
+    <div class="kpi-panel primary-border" *ngIf="topNetRatingLineup">
+      <div class="kpi-header">
+        <span class="kpi-title">Highest Net Rating Lineup</span>
+        <span class="kpi-tag success">Top Differential</span>
+      </div>
+      <div class="kpi-metric positive">+{{ topNetRatingLineup.net_rating | number:'1.1-1' }}</div>
+      <div class="kpi-team">
+        <strong>{{ topNetRatingLineup.team_name }}</strong>
+        <span class="pill-poss">{{ topNetRatingLineup.total_possessions }} Possessions</span>
+      </div>
+      <div class="kpi-lineup-preview">
+        <span *ngFor="let p of topNetRatingLineup.players" class="mini-chip">{{ p.name }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-panel orange-border" *ngIf="topOffensiveLineup">
+      <div class="kpi-header">
+        <span class="kpi-title">Best Offensive Rating</span>
+        <span class="kpi-tag orange">Offensive Efficiency</span>
+      </div>
+      <div class="kpi-metric accent">{{ topOffensiveLineup.offensive_rating | number:'1.1-1' }}</div>
+      <div class="kpi-team">
+        <strong>{{ topOffensiveLineup.team_name }}</strong>
+        <span class="pill-poss">{{ topOffensiveLineup.offensive_possessions }} Off Poss</span>
+      </div>
+      <div class="kpi-lineup-preview">
+        <span class="stat-highlight">eFG%: {{ (topOffensiveLineup.offensive_efg_pct * 100) | number:'1.1-1' }}%</span>
+        <span class="stat-highlight">TS%: {{ (topOffensiveLineup.offensive_ts_pct * 100) | number:'1.1-1' }}%</span>
+      </div>
+    </div>
+
+    <div class="kpi-panel blue-border" *ngIf="topReboundLineup">
+      <div class="kpi-header">
+        <span class="kpi-title">Defensive Glass Control (DREB%)</span>
+        <span class="kpi-tag blue">Rebound Anchor</span>
+      </div>
+      <div class="kpi-metric blue">{{ topReboundLineup.defensive_dreb_pct | number:'1.1-1' }}%</div>
+      <div class="kpi-team">
+        <strong>{{ topReboundLineup.team_name }}</strong>
+        <span class="pill-poss">{{ topReboundLineup.defensive_possessions }} Def Poss</span>
+      </div>
+      <div class="kpi-lineup-preview">
+        <span class="stat-highlight">OREB%: {{ topReboundLineup.offensive_oreb_pct | number:'1.1-1' }}%</span>
+        <span class="stat-highlight">DRtg: {{ topReboundLineup.defensive_rating | number:'1.1-1' }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="console-box">
+    <div class="filter-toolbar">
+      <div class="filter-item">
+        <label>Lineup Grouping</label>
+        <div class="segmented-control">
+          <button 
+            type="button" 
+            *ngFor="let size of [5, 4, 3, 2, 1]" 
+            [class.active]="lineupSize === size"
+            (click)="lineupSize = size; onFilterChange()">
+            {{ size === 1 ? '1-Man' : size + '-Man' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="filter-item">
+        <label for="teamSelect">Team Selection</label>
+        <select id="teamSelect" class="form-input" [(ngModel)]="selectedTeam" (change)="onFilterChange()">
+          <option *ngFor="let team of teams" [value]="team.id">{{ team.name }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <div class="label-with-val">
+          <label for="minPossInput">Min Possessions</label>
+          <span class="val-counter">{{ minPossessions }}</span>
+        </div>
+        <input
+          id="minPossInput"
+          type="range"
+          min="0"
+          max="50"
+          step="5"
+          [(ngModel)]="minPossessions"
+          (change)="onFilterChange()"
+          class="slider-input"
+        />
+      </div>
+
+      <div class="filter-item search-grow">
+        <label for="playerSearch">Filter by Player</label>
+        <div class="search-wrap">
+          <input
+            id="playerSearch"
+            type="text"
+            placeholder="Type player name..."
+            [(ngModel)]="searchQuery"
+            (input)="onSearchChange()"
+            class="form-input search-field"
+          />
+          <button *ngIf="searchQuery" class="clear-search" (click)="searchQuery = ''; onSearchChange()">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="view-tabs">
+      <button
+        class="view-tab"
+        [class.active]="activeMetricTab === 'core'"
+        (click)="activeMetricTab = 'core'"
+      >
+        <span class="tab-dot"></span> Efficiency & Net Rating
+      </button>
+      <button
+        class="view-tab"
+        [class.active]="activeMetricTab === 'four_factors'"
+        (click)="activeMetricTab = 'four_factors'"
+      >
+        <span class="tab-dot"></span> Four Factors
+      </button>
+      <button
+        class="view-tab"
+        [class.active]="activeMetricTab === 'shooting'"
+        (click)="activeMetricTab = 'shooting'"
+      >
+        <span class="tab-dot"></span> Shooting & Spacing Profile
+      </button>
+    </div>
+  </section>
+
+  <section class="grid-card">
+    <div *ngIf="isLoading" class="loader-panel">
+      <div class="spinner"></div>
+      <p>Watching film...</p>
+    </div>
+
+    <div *ngIf="errorMessage" class="error-panel">
+      <span class="error-icon">⚠️</span>
+      <p>{{ errorMessage }}</p>
+    </div>
+
+    <div class="table-responsive" *ngIf="!isLoading && !errorMessage">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="sticky-col team-col">Team</th>
+            <th class="sticky-col-2 player-col">Lineup Personnel</th>
+            <th class="sortable text-right" (click)="setSort('total_possessions')">
+              Total Poss <span class="sort-icon">{{ sortColumn === 'total_possessions' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+            </th>
+
+            <ng-container *ngIf="activeMetricTab === 'core'">
+              <th class="sortable text-right" (click)="setSort('offensive_rating')">
+                ORtg <span class="sort-icon">{{ sortColumn === 'offensive_rating' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('defensive_rating')">
+                DRtg <span class="sort-icon">{{ sortColumn === 'defensive_rating' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('net_rating')">
+                Net Rating <span class="sort-icon">{{ sortColumn === 'net_rating' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="text-right">Pts (+/-)</th>
+            </ng-container>
+
+            <ng-container *ngIf="activeMetricTab === 'four_factors'">
+              <th class="sortable text-right" (click)="setSort('offensive_efg_pct')">
+                Off eFG% <span class="sort-icon">{{ sortColumn === 'offensive_efg_pct' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('defensive_efg_pct')">
+                Def eFG% <span class="sort-icon">{{ sortColumn === 'defensive_efg_pct' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('offensive_tov_pct')">
+                Off TOV% <span class="sort-icon">{{ sortColumn === 'offensive_tov_pct' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('offensive_oreb_pct')">
+                OREB% <span class="sort-icon">{{ sortColumn === 'offensive_oreb_pct' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('defensive_dreb_pct')">
+                DREB% <span class="sort-icon">{{ sortColumn === 'defensive_dreb_pct' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('offensive_ft_rate')">
+                FTR <span class="sort-icon">{{ sortColumn === 'offensive_ft_rate' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+            </ng-container>
+
+            <ng-container *ngIf="activeMetricTab === 'shooting'">
+              <th class="sortable text-right" (click)="setSort('offensive_ts_pct')">
+                True Shooting (TS%) <span class="sort-icon">{{ sortColumn === 'offensive_ts_pct' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('offensive_3par')">
+                3P Attempt Rate (3PAr) <span class="sort-icon">{{ sortColumn === 'offensive_3par' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('offensive_fg_pct')">
+                Overall FG% <span class="sort-icon">{{ sortColumn === 'offensive_fg_pct' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+              <th class="sortable text-right" (click)="setSort('offensive_fg3_pct')">
+                3P% <span class="sort-icon">{{ sortColumn === 'offensive_fg3_pct' ? (sortAsc ? '▲' : '▼') : '' }}</span>
+              </th>
+            </ng-container>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of paginatedLineups">
+            <td class="sticky-col team-col">
+              <span class="team-tag" [ngClass]="row.team_name.toLowerCase().replace(' ', '-')">
+                {{ row.team_name }}
+              </span>
+            </td>
+            <td class="sticky-col-2 player-col">
+              <div class="lineup-chips">
+                <span class="roster-badge" *ngFor="let player of row.players">
+                  {{ player.name }}
+                </span>
+              </div>
+            </td>
+            <td class="text-right font-mono font-bold">{{ row.total_possessions }}</td>
+
+            <ng-container *ngIf="activeMetricTab === 'core'">
+              <td class="text-right font-mono">{{ row.offensive_rating | number:'1.1-1' }}</td>
+              <td class="text-right font-mono">{{ row.defensive_rating | number:'1.1-1' }}</td>
+              <td class="text-right">
+                <span
+                  class="net-badge"
+                  [class.net-pos]="row.net_rating > 0"
+                  [class.net-neg]="row.net_rating < 0"
+                  [class.net-even]="row.net_rating === 0"
+                >
+                  {{ row.net_rating > 0 ? '+' : '' }}{{ row.net_rating | number:'1.1-1' }}
+                </span>
+              </td>
+              <td class="text-right font-mono">
+                {{ row.offensive_points }} - {{ row.defensive_points }}
+                <span class="diff-span" [class.pos]="row.offensive_points >= row.defensive_points">
+                  ({{ row.offensive_points - row.defensive_points >= 0 ? '+' : '' }}{{ row.offensive_points - row.defensive_points }})
+                </span>
+              </td>
+            </ng-container>
+
+            <ng-container *ngIf="activeMetricTab === 'four_factors'">
+              <td class="text-right font-mono">{{ (row.offensive_efg_pct * 100) | number:'1.1-1' }}%</td>
+              <td class="text-right font-mono">{{ (row.defensive_efg_pct * 100) | number:'1.1-1' }}%</td>
+              <td class="text-right font-mono">{{ row.offensive_tov_pct | number:'1.1-1' }}%</td>
+              <td class="text-right font-mono">{{ row.offensive_oreb_pct | number:'1.1-1' }}%</td>
+              <td class="text-right font-mono glass-highlight">{{ row.defensive_dreb_pct | number:'1.1-1' }}%</td>
+              <td class="text-right font-mono">{{ row.offensive_ft_rate | number:'1.2-2' }}</td>
+            </ng-container>
+
+            <ng-container *ngIf="activeMetricTab === 'shooting'">
+              <td class="text-right font-mono">{{ (row.offensive_ts_pct * 100) | number:'1.1-1' }}%</td>
+              <td class="text-right font-mono">{{ (row.offensive_3par * 100) | number:'1.1-1' }}%</td>
+              <td class="text-right font-mono">{{ (row.offensive_fg_pct * 100) | number:'1.1-1' }}%</td>
+              <td class="text-right font-mono">{{ (row.offensive_fg3_pct * 100) | number:'1.1-1' }}%</td>
+            </ng-container>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="filteredLineups.length === 0" class="empty-state">
+        <div class="empty-icon">🔍</div>
+        <h4>No Qualifying Lineups Found</h4>
+        <p>No lineups match the chosen possession threshold or player filter.</p>
+      </div>
+
+      <div class="pagination-footer" *ngIf="filteredLineups.length > 0">
+        <div class="page-size-selector">
+          <label for="pageSizeSelect">Show:</label>
+          <select id="pageSizeSelect" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+            <option *ngFor="let size of pageSizeOptions" [ngValue]="size">{{ size }} per page</option>
+          </select>
+          <span class="item-count-text">
+            Showing {{ startIndex }}–{{ endIndex }} of {{ filteredLineups.length }} lineups
+          </span>
+        </div>
+
+        <div class="page-controls">
+          <button 
+            class="page-nav-btn" 
+            [disabled]="currentPage === 1" 
+            (click)="setPage(1)" 
+            title="First Page">
+            &laquo;
+          </button>
+          <button 
+            class="page-nav-btn" 
+            [disabled]="currentPage === 1" 
+            (click)="setPage(currentPage - 1)" 
+            title="Previous Page">
+            &lsaquo; Prev
+          </button>
+
+          <div class="page-numbers">
+            <button 
+              *ngFor="let p of visiblePageNumbers" 
+              class="page-num-btn" 
+              [class.active]="p === currentPage"
+              (click)="setPage(p)">
+              {{ p }}
+            </button>
+          </div>
+
+          <button 
+            class="page-nav-btn" 
+            [disabled]="currentPage === totalPages" 
+            (click)="setPage(currentPage + 1)" 
+            title="Next Page">
+            Next &rsaquo;
+          </button>
+          <button 
+            class="page-nav-btn" 
+            [disabled]="currentPage === totalPages" 
+            (click)="setPage(totalPages)" 
+            title="Last Page">
+            &raquo;
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metric Glossary Modal -->
+  <div class="modal-backdrop" *ngIf="showGlossary" (click)="closeGlossary()">
+    <div class="glossary-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3>FiveCast Metric Glossary & Calculation Key</h3>
+          <p>Analytical reference formulas for coaching staff and front-office analysts</p>
+        </div>
+        <button class="modal-close-btn" (click)="closeGlossary()">✕</button>
+      </div>
+
+      <div class="category-filter-pills">
+        <button 
+          *ngFor="let cat of ['All', 'Efficiency', 'Four Factors', 'Shooting & Spacing']"
+          [class.active]="glossaryActiveCategory === cat"
+          (click)="glossaryActiveCategory = cat"
+          class="cat-pill">
+          {{ cat }}
+        </button>
+      </div>
+
+      <div class="glossary-list">
+        <div class="glossary-item-card" *ngFor="let m of displayedGlossaryMetrics">
+          <div class="metric-top">
+            <span class="m-code">{{ m.code }}</span>
+            <span class="m-name">{{ m.name }}</span>
+            <span class="m-cat-tag">{{ m.category }}</span>
+          </div>
+          <div class="formula-box">
+            <code>{{ m.formula }}</code>
+          </div>
+          <p class="m-explanation">{{ m.explanation }}</p>
+          <div class="m-context">
+            <strong>Coaching Application:</strong> {{ m.coachingContext }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
